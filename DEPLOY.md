@@ -18,6 +18,14 @@
 Local run: copy `.env.example` to `.env.local`, fill it, `npm install`, `npm run dev`.
 Tests: `npm test` (27) and `npm run typecheck`.
 
+## Reliable discovery (recommended): free Geoapify key
+The public OpenStreetMap servers are often overloaded. Geoapify serves the same OpenStreetMap-based places from a dependable API.
+1. Sign up at https://myprojects.geoapify.com (no card), create a project, copy its API key.
+2. Add it as `GEOAPIFY_API_KEY` in `.env.local` and in Vercel -> Settings -> Environment Variables, then redeploy.
+3. Free plan: 3,000 credits/day, attribution required (the app shows "Powered by Geoapify"). Check Geoapify's current terms for your use.
+The app tries Geoapify first and falls back to the public servers. Industries Geoapify has no category for (HVAC, roofing, plumbers, gyms, physiotherapy, construction and a few more) use the public servers only.
+The daily job is scheduled three times a day (04:00, 10:00, 16:00 UTC); only the first successful run counts, so a failed attempt is retried automatically.
+
 ## Troubleshooting
 - **Vercel shows `404: NOT_FOUND`**: Vercel is not building the Next.js app. In the project: Settings -> General -> *Root Directory* must be the folder that contains `package.json` and `app/` (if your repo has a `leads-noble` or `noble-leads` folder inside it, set that folder, or move its contents to the repo root). Settings -> Build and Deployment -> *Framework Preset* must be **Next.js** and *Output Directory* must be empty. Then Deployments -> Redeploy. `vercel.json` already sets the framework.
 - **Discovery says HTTP 504 / timed out**: the free public OpenStreetMap servers are busy. The app now tries two servers, twice. City searches use a small radius around the city centre (fast); states and provinces use a boundary lookup (slower). Try again in a few minutes, use coordinates with a 2-5 km radius, or import a CSV. `/api/health?check=discovery` (signed in) tests the connection.

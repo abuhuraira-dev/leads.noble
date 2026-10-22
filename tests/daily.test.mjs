@@ -80,3 +80,18 @@ test('every listed city has a centre or is a state/province; city searches use a
 test('discovery fails over between servers on 504 and names what went wrong',async()=>{
  const urls=[];const realFetch=globalThis.fetch;globalThis.fetch=async(u)=>{urls.push(new URL(u).hostname);return {ok:false,status:504,json:async()=>({})}};
  try{await assert.rejects(()=>discover({category:'Dentists',lat:24.86,lon:67.01,radius:3,limit:5,timeoutMs:20000}),/overpass\.private\.coffee: HTTP 504; maps\.mail\.ru: HTTP 504/);assert.ok(urls.length>=2)}finally{globalThis.fetch=realFetch}});
+
+import {discoverGeoapify,geoLead,GEO_CATEGORIES} from '../lib/geoapify.mjs';
+test('geoapify categories are all real keys and every one maps to a known industry',()=>{for(const k of Object.keys(GEO_CATEGORIES))assert.ok(niches[k],k)});
+test('geoapify source: circle search for cities, no-website + contact filter, OSM ids for dedupe, key errors are clear',async()=>{
+ const urls=[];const feat=(id,name,extra={})=>({properties:{place_id:id,name,formatted:name+', Dubai',lat:25.2,lon:55.3,datasource:{raw:{osm_type:'n',osm_id:Number(id.slice(1))}},...extra}});
+ const fetchImpl=async u=>{urls.push(u);return {ok:true,status:200,json:async()=>({features:[feat('p1','Has Site',{website:'https://x.example.org',contact:{phone:'+971 4 1'}}),feat('p2','No Site Phone',{contact:{phone:'+971 4 2222222'}}),feat('p3','Nothing')]})}};
+ const r=await discoverGeoapify({category:'Travel agencies',city:'Dubai',country:'AE',lat:'',lon:'',radius:5,limit:10,noWebsite:true},{key:'K',fetchImpl});
+ assert.equal(r.leads.length,1);assert.equal(r.leads[0].name,'No Site Phone');assert.equal(r.leads[0].externalId,'osm:node:2');assert.equal(r.leads[0].id,'osm-node-2');
+ assert.match(urls[0],/categories=service\.travel_agency,office\.travel_agent&filter=circle:55\.2708,25\.2048,8000&limit=100/);assert.match(urls[0],/apiKey=K/);
+ assert.equal(await discoverGeoapify({category:'Roofing',city:'Dubai',country:'AE'},{key:'K',fetchImpl}),null);
+ await assert.rejects(()=>discoverGeoapify({category:'Dentists',city:'Dubai',country:'AE',limit:5},{key:'bad',fetchImpl:async()=>({ok:false,status:401})}),/rejected the API key/)});
+test('discover prefers geoapify when a key exists and falls back to the public servers when it fails',async()=>{
+ const realFetch=globalThis.fetch;process.env.GEOAPIFY_API_KEY='K';const hosts=[];
+ globalThis.fetch=async u=>{const h=new URL(u).hostname;hosts.push(h);if(h==='api.geoapify.com')return {ok:false,status:500,json:async()=>({})};return {ok:true,status:200,json:async()=>({elements:[{type:'node',id:9,lat:1,lon:1,tags:{name:'Fallback Dental',phone:'0300 111 2222'}}]})}};
+ try{const r=await discover({category:'Dentists',city:'Karachi',country:'PK',limit:5,lat:'',lon:'',noWebsite:true});assert.equal(r.leads[0].name,'Fallback Dental');assert.ok(hosts[0]==='api.geoapify.com'&&hosts.some(h=>h!=='api.geoapify.com'))}finally{globalThis.fetch=realFetch;delete process.env.GEOAPIFY_API_KEY}});
