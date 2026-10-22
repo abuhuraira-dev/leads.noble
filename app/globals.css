@@ -86,3 +86,5 @@ input,select,textarea{max-width:100%}
 @media(max-width:768px){.kanban{grid-template-columns:minmax(0,1fr)}}
 
 .mark-img{border-radius:9px;display:block}
+
+.brand-logo{height:30px;width:auto;display:block}

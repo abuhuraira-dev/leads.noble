@@ -31,3 +31,16 @@ end $$;
 
 revoke all on function public.put_record(text,text,text,jsonb) from public, anon, authenticated;
 grant execute on function public.put_record(text,text,text,jsonb) to service_role;
+
+-- Insert-only write used by discovery: returns null (and changes nothing) when the record already exists,
+-- so the same business can never be stored twice even if two searches run at the same time.
+create or replace function public.add_record(p_owner text, p_id text, p_kind text, p_data jsonb)
+returns jsonb language plpgsql security invoker set search_path = public as $$
+declare result jsonb;
+begin
+  insert into public.records (owner, id, kind, data) values (p_owner, p_id, p_kind, p_data)
+  on conflict (owner, id) do nothing returning data into result;
+  return result;
+end $$;
+revoke all on function public.add_record(text,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.add_record(text,text,text,jsonb) to service_role;

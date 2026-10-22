@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NobleLeads — Noblesoft",
+  title: "LeadsNoble — Noblesoft",
   description: "Find the right businesses. Make good work happen.",
   manifest: "/manifest.webmanifest",
   icons: {
