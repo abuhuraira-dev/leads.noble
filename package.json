@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern .next",
     "test": "node --test tests/*.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "doctor": "node --env-file-if-exists=.env.local scripts/doctor.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

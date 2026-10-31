@@ -24,10 +24,10 @@ test('daily run rotates targets, dedupes, researches, notifies and records the r
  const s=memory(),sent=[];const settings={dailyEnabled:true,dailyMode:'custom',dailyTargets:'Dentists | Karachi | PK\nSalons | Lahore | PK'};
  const found=()=>({leads:[mk({name:'Hot One',phone:'0300111222'}),mk({name:'No Contact'})],warning:''});
  const impl={discover:async o=>{assert.equal(o.noWebsite,true);assert.equal(o.category,'Salons');assert.equal(o.timeoutMs<=25000,true);return found()},research:async l=>({...l,research:{status:'website-unknown'}})};
- const r=await runDaily({...s,settings,impl,index:1,notify:async t=>sent.push(t)});
- assert.equal(r.added,2);assert.equal(r.hot,1);assert.equal(r.researched,2);assert.match(sent[0],/Hot One/);assert.doesNotMatch(sent[0],/No Contact/);
+ const fixed=()=>20000*864e5;const r=await runDaily({...s,settings,impl,index:1,clock:fixed,notify:async t=>sent.push(t)});
+ assert.equal(r.added,2);assert.equal(r.hot,1);assert.equal(r.evaluated,2);assert.equal(r.shortlisted,1);assert.match(sent[0],/Hot One/);assert.doesNotMatch(sent[0],/• No Contact/);assert.equal(s.m.lead.find(l=>l.name==='No Contact').triage,'rejected');assert.equal(s.m.lead.find(l=>l.name==='Hot One').triage,'shortlisted');
  assert.equal(s.m.settings[0].lastDaily.message,r.message);assert.equal(s.m.settings[0].dailyTargets,settings.dailyTargets);
- const again=await runDaily({...s,settings:s.m.settings[0],impl,index:1,force:true});assert.equal(again.added,0);assert.equal(again.duplicates,2)});
+ const again=await runDaily({...s,settings:s.m.settings[0],impl,index:1,force:true,clock:fixed});assert.equal(again.added,0);assert.equal(again.duplicates,2)});
 test('daily run is skipped when switched off, reports failures and never crashes the cron',async()=>{
  const s=memory();assert.equal((await runDaily({...s,settings:{dailyMode:'custom',dailyTargets:'Dentists | Karachi | PK'}})).skipped,true);
  assert.equal((await runDaily({...s,settings:{dailyEnabled:true,dailyMode:'custom'}})).ok,false);
@@ -95,3 +95,15 @@ test('discover prefers geoapify when a key exists and falls back to the public s
  const realFetch=globalThis.fetch;process.env.GEOAPIFY_API_KEY='K';const hosts=[];
  globalThis.fetch=async u=>{const h=new URL(u).hostname;hosts.push(h);if(h==='api.geoapify.com')return {ok:false,status:500,json:async()=>({})};return {ok:true,status:200,json:async()=>({elements:[{type:'node',id:9,lat:1,lon:1,tags:{name:'Fallback Dental',phone:'0300 111 2222'}}]})}};
  try{const r=await discover({category:'Dentists',city:'Karachi',country:'PK',limit:5,lat:'',lon:'',noWebsite:true});assert.equal(r.leads[0].name,'Fallback Dental');assert.ok(hosts[0]==='api.geoapify.com'&&hosts.some(h=>h!=='api.geoapify.com'))}finally{globalThis.fetch=realFetch;delete process.env.GEOAPIFY_API_KEY}});
+
+test('network failures name their cause instead of just "fetch failed"',async()=>{
+ const err=Object.assign(Error('fetch failed'),{cause:{code:'ETIMEDOUT'}});
+ await assert.rejects(()=>discoverGeoapify({category:'Dentists',city:'Dubai',country:'AE',limit:5},{key:'K',fetchImpl:async()=>{throw err}}),/Geoapify unreachable \(ETIMEDOUT\)/)});
+
+import {pickCampaign as pick2} from '../lib/catalog.mjs';
+test('with a Geoapify key the daily rotation only picks industries Geoapify can serve',()=>{
+ const only=Object.keys(GEO_CATEGORIES);for(let d=0;d<60;d++)assert.ok(only.includes(pick2({day:20000+d,only}).industry));
+ assert.ok(Object.keys(niches).includes('Plumbers')&&!GEO_CATEGORIES.Plumbers)});
+test('an unsupported industry explains why Geoapify was skipped',async()=>{
+ const real=globalThis.fetch;process.env.GEOAPIFY_API_KEY='K';globalThis.fetch=async()=>({ok:false,status:504,json:async()=>({})});
+ try{await assert.rejects(()=>discover({category:'Plumbers',lat:53.3,lon:-6.2,radius:5,limit:5,timeoutMs:12000}),/Geoapify: does not cover “Plumbers”/)}finally{globalThis.fetch=real;delete process.env.GEOAPIFY_API_KEY}});

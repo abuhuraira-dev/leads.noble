@@ -30,3 +30,16 @@ The daily job is scheduled three times a day (04:00, 10:00, 16:00 UTC); only the
 - **Vercel shows `404: NOT_FOUND`**: Vercel is not building the Next.js app. In the project: Settings -> General -> *Root Directory* must be the folder that contains `package.json` and `app/` (if your repo has a `leads-noble` or `noble-leads` folder inside it, set that folder, or move its contents to the repo root). Settings -> Build and Deployment -> *Framework Preset* must be **Next.js** and *Output Directory* must be empty. Then Deployments -> Redeploy. `vercel.json` already sets the framework.
 - **Discovery says HTTP 504 / timed out**: the free public OpenStreetMap servers are busy. The app now tries two servers, twice. City searches use a small radius around the city centre (fast); states and provinces use a boundary lookup (slower). Try again in a few minutes, use coordinates with a 2-5 km radius, or import a CSV. `/api/health?check=discovery` (signed in) tests the connection.
 - **Red "1 Issue" badge in `npm run dev`**: Next.js's development overlay. It does not appear in the deployed app.
+
+## Daily directory workflow
+Every day (cron at 03:00, 08:00 and 13:00 UTC; only the first successful search counts, the others retry and continue evaluating):
+1. **Collect** one campaign (one priority country, one industry, two regions) from OpenStreetMap/Geoapify. Businesses are stored once, never duplicated.
+2. **Evaluate** up to 60 businesses: websites are audited; no phone/email or no clear need -> suppressed.
+3. **Shortlist** the best 50 (hot first, email over phone, proven reviews, no single country above 40%). Open it in Leads -> *Shortlist*.
+4. **Notify** on Telegram when the cycle finishes, plus a reminder at 14:00 UTC about waiting leads, due follow-ups, or a search that did not finish.
+Google Maps results you import by hand (Discover -> Google Maps, or a CSV) join the same directory and go through the same checks. Google searches are not scheduled.
+
+### Telegram alerts (free, phone notifications)
+1. In Telegram open @BotFather -> `/newbot` -> copy the token.
+2. Send any message to your new bot, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy the number after `"chat":{"id":`.
+3. Add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in Vercel and redeploy.

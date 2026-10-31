@@ -1,3 +1,7 @@
+# Google Maps update
+
+Start with [GOOGLE-MAPS-START.md](GOOGLE-MAPS-START.md). This version adds Google Maps discovery with rating/review filters, background jobs, original listing details, duplicate prevention and scraper CSV import. The original documentation below describes the legacy OpenStreetMap workflow. Google Maps requires the separate Docker engine.
+
 # NobleLeads — Noblesoft
 
 A private, responsive agency workspace for discovering businesses, verifying opportunities, writing offers, tracking conversations and producing branded invoices. This is an installable web app (PWA), not a Play Store / App Store binary.
